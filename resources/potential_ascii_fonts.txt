@@ -1,0 +1,6 @@
+slant
+lean
+reverse
+rounded
+speed
+stop

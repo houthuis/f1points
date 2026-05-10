@@ -1,0 +1,137 @@
+#!/usr/bin/env zsh
+# Script for automating an F1 points game
+
+#source libraries
+
+source lib/config.shlib
+
+#constants
+
+CONFIG_FILE="config/config.cfg"
+PLAYER_CONFIG="config/player.cfg"
+
+VERSION=0.0.1
+
+typeset -a players=()
+typeset -a drivers=()
+typeset -A assigned_drivers=()
+typeset -A player_points=()
+
+# declare functions
+
+#displays a useful help message
+helpFunction() {
+
+print \\n
+print "Usage: $ZSH_ARGZERO [OPTION]..."
+print "Automises an F1 Points Game by drawing drivers, allocating points, etc."
+print \\n
+print "Options: (Mandatory arguments to long options are mandatory for short options too)"
+print \\t "    --car                            try me out!"
+print \\t "-d, --draw                           performs a draw, assigning the configured amount of drivers to each player"
+print \\t "-p, --points                         allocates points based on the latest race to each player"
+print \\t "-c, --config key=value               configures the supplied property. available: NUMBER_OF_PLAYERS, DRIVERS_PER_PLAYER"
+print \\t "-h, --help                           displays this help and exits"
+print \\n
+
+
+exit 0
+
+}
+
+welcome() {
+
+    print \\n
+    print "Welcome to the F1 Points Game utility!"
+    print "If you are unsure about how to proceed, please run the following for a list of available commands:"
+    print \\t "$ $ZSH_ARGZERO --help"
+    print \\n
+
+}
+
+#prints a cool banner of the utility name
+printBanner() {
+    echo
+    cat resources/banner.txt
+    echo "Version: ${VERSION}"
+    echo
+}
+
+#prints a cool ACII art image of a F1 car
+printCar() {
+    print "Here is a cool image of a F1 car:"
+    echo
+    cat resources/car.txt
+    echo
+}
+
+#assigns the configured amount of drivers to each player
+performDraw() {
+
+}
+
+#allocates points based on the lastest race result to each player
+allocatePoints() {
+
+}
+
+#checks whether the system the utility is used on meets all requirements
+performSystemCheck() {
+
+}
+
+#checks whether the utility is correctly configured
+performConfigCheck() {
+
+    #"$(config_get config/config.cfg NUMBER_OF_PLAYERS)"
+
+    local number_of_players=$(config_get config/config.cfg NUMBER_OF_PLAYERS)
+
+    if [[ $number_of_players = 0 ]]; then
+        echo "Players are not onfigured. Please load players individually or load initialisation file"
+        exit 1
+    fi
+
+
+}
+
+#configures the supplied property
+configureProperty() {
+
+    local key_value="$1"
+
+    echo "configureProperty"
+    echo key_value
+
+    if [[ $key_value = *"=" ]]; then
+        echo "Please provide property in the format key=value, eg DRIVERS_PER_PLAYER=2"
+        exit 1
+    fi
+
+}
+
+#script start
+
+echo
+printBanner
+
+performSystemCheck
+performConfigCheck
+
+TEMP=$(getopt -o dpc:h --long car,draw,points,config:,help -n 'f1points' -- "$@")
+
+if [ $? != 0 ] ; then echo "Terminating..." >&2 ; exit 1 ; fi
+
+eval set -- "$TEMP"
+
+while true; do
+    case "$1" in
+        --car ) printCar; break ;;
+        -d | --draw ) performDraw; break;;
+        -p | --points ) allocatePoints; break ;;
+        -c | --config ) configureProperty "$2"; shift 2; break ;;
+        -h | --help ) helpFunction; break ;;
+        -- ) welcome; shift; break ;;
+        * ) echo "*"; break ;;
+    esac
+done

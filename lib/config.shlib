@@ -1,0 +1,19 @@
+config_read_file() {
+    (grep -E "^${2}=" -m 1 "${1}" 2>/dev/null || echo "VAR=__UNDEFINED__") | head -n 1 | cut -d '=' -f 2-;
+}
+
+# config_get <config_file> <key>
+config_get() {
+
+    print "${1}"
+    print "${2}"
+
+    readonly config_file=${1:?"The config file must be specified"}
+
+    val="$(config_read_file $config_file "${2}")";
+    if [ "${val}" = "__UNDEFINED__" ]; then
+        echo "Missing config for ${val}!"
+        return 1
+    fi
+    printf -- "%s" "${val}";
+}
