@@ -9,7 +9,7 @@ source lib/config.shlib
 
 ROOT_PATH=$(pwd)
 CONFIG_FILE="${ROOT_PATH}/config/config.cfg"
-PLAYER_CONFIG="${ROOT_PATH}/config/player.cfg"
+PLAYER_CONFIG="${ROOT_PATH}/config/players.cfg"
 BANNER_FILE="${ROOT_PATH}/resources/banner.txt"
 CAR_FILE="${ROOT_PATH}/resources/car.txt"
 
@@ -46,14 +46,17 @@ exit 0
 
 printError() {
     echo -e "\033[1;31m[ERROR] ${1}\033[0m"
+    echo
 }
 
 printInfo() {
     echo -e "\033[1;36m[INFO] ${1}\033[0m"
+    echo
 }
 
 printOK() {
     echo -e "\033[1;32m[INFO] ${1}\033[0m"
+    echo
 }
 
 welcome() {
@@ -69,7 +72,7 @@ welcome() {
 #prints a cool banner of the utility name
 printBanner() {
     echo
-    cat resources/banner.txt
+    cat ${BANNER_FILE}
     echo "Version: ${VERSION}"
     echo
 }
@@ -78,7 +81,7 @@ printBanner() {
 printCar() {
     print "Here is a cool image of an F1 car:"
     echo
-    cat resources/car.txt
+    cat ${CAR_FILE}
     echo
 }
 
@@ -104,6 +107,11 @@ performSystemCheck() {
     # might need this for compatibilty?
     #if [ -n "$ZSH_VERSION" ]; then emulate -L ksh; fi
 
+    if [[ "${SHELL}" == *"bin/fish"* ]]; then
+        printError "The fish shell is not supported. Please use bash or zsh"
+        exit 1
+    fi
+
     getoptMacOS
 
 }
@@ -111,11 +119,19 @@ performSystemCheck() {
 #checks whether the utility is correctly configured
 performConfigCheck() {
 
+    # is NUMBER_OF_PLAYERS even needed as a config?
     local number_of_players=$(config_get $CONFIG_FILE NUMBER_OF_PLAYERS)
 
     echo "NUMBER_OF_PLAYERS -> ${number_of_players}"
 
     if [[ $number_of_players = 0 ]]; then
+        printError "Player amount is not onfigured. Please load players individually or load initialisation file"
+        # exit 1
+    fi
+
+    players=$(<${PLAYER_CONFIG})
+
+    if [[ "${#players}" == 0 ]]; then
         printError "Players are not onfigured. Please load players individually or load initialisation file"
         exit 1
     fi
@@ -145,7 +161,7 @@ configureProperty() {
     local parts=(${(s/:/)key_value})
 
     local key=$parts[1]
-    local value=$parts[2]
+    local new_value=$parts[2]
 
     readonly returned_key="$(config_check $CONFIG_FILE $key)"
 
@@ -154,20 +170,22 @@ configureProperty() {
         exit 1
     fi
 
-    echo "Configuring ${key} with ${value}"
+    if [[ ${#new_value} == 0 ]]; then
+        printError "Please specify a valid value for ${key}"
+        exit 1
+    fi
 
-    # TODO: write value to file
+    readonly current_value="$(config_get $CONFIG_FILE $key)"
 
+    printInfo "Configuring ${key}. Current value: ${current_value}, New value: ${new_value}"
+
+    sed -i "/${key}/s/${current_value}/${new_value}/g" $CONFIG_FILE
 }
 
 getoptMacOS() {
 
     if [[ "$(uname -s)" == 'Darwin' ]]; then
         if [[ ! -f /usr/local/opt/gnu-getopt/bin/getopt ]]; then
-            if [[ "${SHELL}" == *"bin/fish"* ]]; then
-                printError "The fish shell is not supported. Please use bash or zsh"
-                exit 1
-            fi
             printError "Please install gnu-getopt via Homebrew with: brew install gnu-getopt"
             exit 1
         else
