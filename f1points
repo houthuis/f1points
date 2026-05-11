@@ -5,7 +5,7 @@
 
 source lib/config.shlib
 
-#constants
+# constants
 
 ROOT_PATH=$(pwd)
 CONFIG_FILE="${ROOT_PATH}/config/config.cfg"
@@ -13,7 +13,7 @@ PLAYER_CONFIG="${ROOT_PATH}/config/players.cfg"
 BANNER_FILE="${ROOT_PATH}/resources/banner.txt"
 CAR_FILE="${ROOT_PATH}/resources/car.txt"
 
-typeset -a DEFINED_PROPERTIES=("NUMBER_OF_PLAYERS", "DRIVERS_PER_PLAYER")
+typeset -a DEFINED_PROPERTIES=("NUMBER_OF_PLAYERS" "DRIVERS_PER_PLAYER")
 
 VERSION=0.0.1
 
@@ -24,7 +24,7 @@ typeset -A player_points=()
 
 # declare functions
 
-#displays a useful help message
+# displays a useful help message
 helpFunction() {
 
 print \\n
@@ -35,12 +35,11 @@ print "Options: (Mandatory arguments to long options are mandatory for short opt
 print \\t "    --car                            try me out!"
 print \\t "-d, --draw                           performs a draw, assigning the configured amount of drivers to each player"
 print \\t "-p, --points                         allocates points based on the latest race to each player"
+print \\t "-l, --players                        loads players who will be playing the game. only do this once per season"
 print \\t "-c, --config key:value               configures the supplied property. available: ${DEFINED_PROPERTIES}"
+print \\t "-r, --reset                          resets config, players and points. use with caution"
 print \\t "-h, --help                           displays this help and exits"
 print \\n
-
-
-exit 0
 
 }
 
@@ -59,6 +58,11 @@ printOK() {
     echo
 }
 
+printWarning() {
+    echo -e "\033[1;33m[INFO] ${1}\033[0m"
+    echo
+}
+
 welcome() {
 
     print \\n
@@ -69,7 +73,7 @@ welcome() {
 
 }
 
-#prints a cool banner of the utility name
+# prints a cool banner of the utility name
 printBanner() {
     echo
     cat ${BANNER_FILE}
@@ -77,7 +81,7 @@ printBanner() {
     echo
 }
 
-#prints a cool ACII art image of an F1 car
+# prints a cool ACII art image of an F1 car
 printCar() {
     print "Here is a cool image of an F1 car:"
     echo
@@ -85,21 +89,47 @@ printCar() {
     echo
 }
 
-#assigns the configured amount of drivers to each player
+# assigns the configured amount of drivers to each player
 performDraw() {
 
     performConfigCheck
 
 }
 
-#allocates points based on the lastest race result to each player
+# allocates points based on the lastest race result to each player
 allocatePoints() {
 
     performConfigCheck
 
 }
 
-#checks whether the system the utility is used on meets all requirements
+# loads the players who will be playing the game
+loadPlayers() {
+
+    printInfo "Loading players. Type EOF to end"
+
+    local player=""
+
+    while [[ true ]]; do
+        vared -p 'Enter player name -> ' -c tmp
+
+        if [[ ${tmp} == "EOF" ]]; then
+            break
+        fi
+
+        player=${tmp}
+        tmp=""
+
+        players+=$player
+    done
+
+    printf '%s\n' "${players[@]}" > ${PLAYER_CONFIG}
+
+    printf -v output '%s, ' "${players[@]}"
+    printOK "Players saved succesfully: ${output}"
+}
+
+# checks whether the system the utility is used on meets all requirements
 performSystemCheck() {
 
     # TODO: check for correct shell, jq, possibly getopt etc
@@ -112,43 +142,41 @@ performSystemCheck() {
         exit 1
     fi
 
-    getoptMacOS
+    getoptVerify
 
 }
 
-#checks whether the utility is correctly configured
+# checks whether the utility is correctly configured
 performConfigCheck() {
 
     # is NUMBER_OF_PLAYERS even needed as a config?
     local number_of_players=$(config_get $CONFIG_FILE NUMBER_OF_PLAYERS)
 
-    echo "NUMBER_OF_PLAYERS -> ${number_of_players}"
-
     if [[ $number_of_players = 0 ]]; then
-        printError "Player amount is not onfigured. Please load players individually or load initialisation file"
+        printError "Player amount is not configured. Please load players individually or load initialisation file"
         # exit 1
     fi
 
-    players=$(<${PLAYER_CONFIG})
+    local IFS=$'\n'
+    # eval "players=( $(<${PLAYER_CONFIG}) )" # this counts spaces as a delimiter
+    players=( $(<${PLAYER_CONFIG}) )
 
     if [[ "${#players}" == 0 ]]; then
-        printError "Players are not onfigured. Please load players individually or load initialisation file"
+        printError "Players are not configured. Please load players individually or load initialisation file"
         exit 1
     fi
 
     local drivers_per_player=$(config_get $CONFIG_FILE DRIVERS_PER_PLAYER)
 
-    echo "DRIVERS_PER_PLAYER -> ${drivers_per_player}"
-
     if [[ $drivers_per_player = 0 ]]; then
-        printError "Drivers per Player is not onfigured. Please configure DRIVERS_PER_PLAYER"
+        printError "Drivers per Player is not configured. Please configure DRIVERS_PER_PLAYER"
         exit 1
     fi
 
 
 }
 
-#configures the supplied property
+# configures the supplied property
 configureProperty() {
 
     local key_value="$1"
@@ -180,9 +208,34 @@ configureProperty() {
     printInfo "Configuring ${key}. Current value: ${current_value}, New value: ${new_value}"
 
     sed -i "/${key}/s/${current_value}/${new_value}/g" $CONFIG_FILE
+
+    printOK "${key}:${new_value} configured"
 }
 
-getoptMacOS() {
+# resets config, players and points
+resetAll() {
+
+    printWarning "This will reset all config, players and points, erasing all data in the process. This action cannot be undone"
+    vared -p 'Do you want to continue? (y/n): ' -c tmp
+
+    if [[ ${tmp} != "y" ]]; then
+        exit 0
+    fi
+
+    for prop in ${DEFINED_PROPERTIES}; do
+        current_value="$(config_get $CONFIG_FILE $prop)"
+        echo "found ${prop}:${current_value}"
+        sed -i "/${prop}/s/${current_value}/0/g" $CONFIG_FILE
+    done
+
+    sed -i '/DRIVERS_PER_PLAYER/s/0/2/g' $CONFIG_FILE # reset to a usable default
+
+    echo "" > $PLAYER_CONFIG
+
+}
+
+# checks whether gnu-getopt is available
+getoptVerify() {
 
     if [[ "$(uname -s)" == 'Darwin' ]]; then
         if [[ ! -f /usr/local/opt/gnu-getopt/bin/getopt ]]; then
@@ -194,7 +247,7 @@ getoptMacOS() {
     fi
 }
 
-#script start
+# script start
 
 echo
 printBanner
@@ -202,9 +255,13 @@ printBanner
 performSystemCheck
 # performConfigCheck
 
-TEMP=$(getopt -o dpc:h --long car,draw,points,config:,help -n 'f1points' -- "$@")
+TEMP=$(getopt -o dplc:rh --long car,draw,points,players,config:,reset,help -n 'f1points' -- "$@")
 
-if [ $? != 0 ] ; then echo "Terminating..." >&2 ; exit 1 ; fi
+if [ $? != 0 ]; then 
+    helpFunction
+    echo "Terminating..." >&2
+    exit 1
+fi
 
 eval set -- "$TEMP"
 
@@ -213,7 +270,9 @@ while true; do
         --car ) printCar; break ;;
         -d | --draw ) performDraw; break;;
         -p | --points ) allocatePoints; break ;;
+        -l | --players ) loadPlayers; break ;;
         -c | --config ) configureProperty "$2"; shift 2; break ;;
+        -r | --reset ) resetAll; break ;;
         -h | --help ) helpFunction; break ;;
         -- ) welcome; shift; break ;;
         * ) echo "*"; break ;;
