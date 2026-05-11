@@ -2,18 +2,37 @@ config_read_file() {
     (grep -E "^${2}=" -m 1 "${1}" 2>/dev/null || echo "VAR=__UNDEFINED__") | head -n 1 | cut -d '=' -f 2-;
 }
 
+config_check_file() {
+    (grep -E "^${2}=" -m 1 "${1}" 2>/dev/null || echo "__UNDEFINED__") | head -n 1 | cut -d '=' -f 1;
+}
+
 # config_get <config_file> <key>
 config_get() {
 
-    print "${1}"
-    print "${2}"
-
     readonly config_file=${1:?"The config file must be specified"}
+    readonly key=${2:?"The key must be specified"}
 
-    val="$(config_read_file $config_file "${2}")";
+    val="$(config_read_file "${config_file}" "${key}")";
     if [ "${val}" = "__UNDEFINED__" ]; then
-        echo "Missing config for ${val}!"
-        return 1
+        echo "Missing config for ${key}!"
+        # return 1
     fi
     printf -- "%s" "${val}";
+    # return 0
+}
+
+# config_get <config_file> <key>
+config_check() {
+
+    readonly config_file=${1:?"The config file must be specified"}
+    readonly key=${2:?"The key must be specified"}
+
+    val="$(config_check_file "${config_file}" "${key}")";
+
+    if [ "${val}" = "__UNDEFINED__" ]; then
+        echo "Config ${key} not found!"
+        # return 1
+    fi
+    printf -- "%s" "${val}";
+    # return 0
 }

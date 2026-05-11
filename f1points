@@ -7,8 +7,13 @@ source lib/config.shlib
 
 #constants
 
-CONFIG_FILE="config/config.cfg"
-PLAYER_CONFIG="config/player.cfg"
+ROOT_PATH=$(pwd)
+CONFIG_FILE="${ROOT_PATH}/config/config.cfg"
+PLAYER_CONFIG="${ROOT_PATH}/config/player.cfg"
+BANNER_FILE="${ROOT_PATH}/resources/banner.txt"
+CAR_FILE="${ROOT_PATH}/resources/car.txt"
+
+typeset -a DEFINED_PROPERTIES=("NUMBER_OF_PLAYERS", "DRIVERS_PER_PLAYER")
 
 VERSION=0.0.1
 
@@ -24,13 +29,13 @@ helpFunction() {
 
 print \\n
 print "Usage: $ZSH_ARGZERO [OPTION]..."
-print "Automises an F1 Points Game by drawing drivers, allocating points, etc."
+print "Automises tasks for an F1 Points Game by drawing drivers, allocating points, etc."
 print \\n
 print "Options: (Mandatory arguments to long options are mandatory for short options too)"
 print \\t "    --car                            try me out!"
 print \\t "-d, --draw                           performs a draw, assigning the configured amount of drivers to each player"
 print \\t "-p, --points                         allocates points based on the latest race to each player"
-print \\t "-c, --config key=value               configures the supplied property. available: NUMBER_OF_PLAYERS, DRIVERS_PER_PLAYER"
+print \\t "-c, --config key:value               configures the supplied property. available: ${DEFINED_PROPERTIES}"
 print \\t "-h, --help                           displays this help and exits"
 print \\n
 
@@ -57,9 +62,9 @@ printBanner() {
     echo
 }
 
-#prints a cool ACII art image of a F1 car
+#prints a cool ACII art image of an F1 car
 printCar() {
-    print "Here is a cool image of a F1 car:"
+    print "Here is a cool image of an F1 car:"
     echo
     cat resources/car.txt
     echo
@@ -68,27 +73,42 @@ printCar() {
 #assigns the configured amount of drivers to each player
 performDraw() {
 
+    performConfigCheck
+
 }
 
 #allocates points based on the lastest race result to each player
 allocatePoints() {
+
+    performConfigCheck
 
 }
 
 #checks whether the system the utility is used on meets all requirements
 performSystemCheck() {
 
+    # TODO: check for correct shell, jq, possibly getopt etc
+
 }
 
 #checks whether the utility is correctly configured
 performConfigCheck() {
 
-    #"$(config_get config/config.cfg NUMBER_OF_PLAYERS)"
+    local number_of_players=$(config_get $CONFIG_FILE NUMBER_OF_PLAYERS)
 
-    local number_of_players=$(config_get config/config.cfg NUMBER_OF_PLAYERS)
+    echo "NUMBER_OF_PLAYERS -> ${number_of_players}"
 
     if [[ $number_of_players = 0 ]]; then
         echo "Players are not onfigured. Please load players individually or load initialisation file"
+        exit 1
+    fi
+
+    local drivers_per_player=$(config_get $CONFIG_FILE DRIVERS_PER_PLAYER)
+
+    echo "DRIVERS_PER_PLAYER -> ${drivers_per_player}"
+
+    if [[ $drivers_per_player = 0 ]]; then
+        echo "Drivers per Player is not onfigured. Please configure DRIVERS_PER_PLAYER"
         exit 1
     fi
 
@@ -100,13 +120,25 @@ configureProperty() {
 
     local key_value="$1"
 
-    echo "configureProperty"
-    echo key_value
-
-    if [[ $key_value = *"=" ]]; then
-        echo "Please provide property in the format key=value, eg DRIVERS_PER_PLAYER=2"
+    if [[ $key_value != *":"* ]]; then
+        echo "Please provide property in the format key=value, eg DRIVERS_PER_PLAYER:2"
         exit 1
     fi
+
+    local parts=(${(s/:/)key_value})
+
+    local key=$parts[1]
+    local value=$parts[2]
+
+    readonly returned_key="$(config_check $CONFIG_FILE $key)"
+
+    if [[ "${returned_key}" != "${key}" ]]; then
+        echo "Key ${key} not found. Please specify a defined property. available: ${DEFINED_PROPERTIES}"
+    fi
+
+    echo "Configuring ${key} with ${value}"
+
+    # TODO: write value to file
 
 }
 
@@ -116,7 +148,7 @@ echo
 printBanner
 
 performSystemCheck
-performConfigCheck
+# performConfigCheck
 
 TEMP=$(getopt -o dpc:h --long car,draw,points,config:,help -n 'f1points' -- "$@")
 
