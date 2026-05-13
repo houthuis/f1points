@@ -12,13 +12,14 @@ CONFIG_FILE="${ROOT_PATH}/config/config.cfg"
 PLAYER_CONFIG="${ROOT_PATH}/config/players.cfg"
 BANNER_FILE="${ROOT_PATH}/resources/banner.txt"
 CAR_FILE="${ROOT_PATH}/resources/car.txt"
+DRIVERS_FILE="${ROOT_PATH}/resources/drivers.json"
 
 typeset -a DEFINED_PROPERTIES=("NUMBER_OF_PLAYERS" "DRIVERS_PER_PLAYER")
 
 VERSION=0.0.1
 
 typeset -a players=()
-typeset -a drivers=()
+typeset -A drivers=()
 typeset -A assigned_drivers=()
 typeset -A player_points=()
 
@@ -93,6 +94,33 @@ printCar() {
 performDraw() {
 
     performConfigCheck
+
+    # players already loaded from config check
+
+    # load drivers
+
+    curl --silent "https://api.openf1.org/v1/drivers?session_key=latest"| jq 'map( { driver_number, full_name })' > $DRIVERS_FILE
+
+    typeset -a driver_numbers=()
+    typeset -a driver_names=()
+
+    # there has to be a better way to do this
+    numbers_string=$(jq -r '[.[].driver_number] | join(",")' $DRIVERS_FILE)
+    names_string=$(jq -r '[.[].full_name] | join(",")'  $DRIVERS_FILE)
+
+    driver_numbers=(${(@s:,:)numbers_string})
+    driver_names=(${(@s:,:)names_string})
+
+    drivers=("${(@)driver_numbers:^driver_names}")
+
+    # debug purposes
+    for key value in ${(kv)drivers}; do
+        echo "entry in drivers -> ${key}:${value}"
+    done
+
+    local drivers_per_player=$(config_get $CONFIG_FILE DRIVERS_PER_PLAYER)
+
+    # assign drivers to players
 
 }
 
@@ -231,6 +259,8 @@ resetAll() {
     sed -i '/DRIVERS_PER_PLAYER/s/0/2/g' $CONFIG_FILE # reset to a usable default
 
     echo "" > $PLAYER_CONFIG
+
+    # TODO: reset points
 
 }
 
